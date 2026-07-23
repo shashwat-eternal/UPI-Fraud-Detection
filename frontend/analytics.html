@@ -201,17 +201,16 @@
 const getApiBase = () => {
   const params = new URLSearchParams(window.location.search);
   if (params.get("api")) return params.get("api");
-  if (window.location.protocol.startsWith("http")) return window.location.origin;
-  return "http://127.0.0.1:8000";
+  if (["localhost", "127.0.0.1"].includes(window.location.hostname)) return "http://127.0.0.1:8000";
+  return "https://upi-fraud-api-bvtv.onrender.com";
 };
 const API_BASE = getApiBase();
 
-if (window.location.search) {
-  const consoleLink = document.getElementById("consoleLink");
-  const liveLink = document.getElementById("liveLink");
-  if (consoleLink) consoleLink.href = "index.html" + window.location.search;
-  if (liveLink) liveLink.href = "live.html" + window.location.search;
-}
+const navQuery = "?api=" + encodeURIComponent(API_BASE);
+const consoleLink = document.getElementById("consoleLink");
+const liveLink = document.getElementById("liveLink");
+if (consoleLink) consoleLink.href = "index.html" + navQuery;
+if (liveLink) liveLink.href = "live.html" + navQuery;
 
 let map = L.map('threatMap').setView([22.5937, 78.9629], 5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

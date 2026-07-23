@@ -1,33 +1,67 @@
+# ==========================
 # Python
+# ==========================
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Virtual environments
 .venv/
 venv/
 env/
-.pytest_cache/
 
-# Node (used only for report generation script)
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==========================
+# Jupyter
+# ==========================
+.ipynb_checkpoints/
+
+# ==========================
+# Node
+# ==========================
 node_modules/
 package-lock.json
 
-# Data & models (large files, don't push raw data or trained models to git)
-data/raw/*.csv
-data/processed/*.csv
-data/predictions.db
-models/*.pkl
-models/*.joblib
-models/generic/
+# ==========================
+# Environment Variables
+# ==========================
+.env
 
-# Jupyter
-.ipynb_checkpoints/
+# ==========================
+# IDE
+# ==========================
+.vscode/
+.idea/
 
-# OS
+# ==========================
+# OS Files
+# ==========================
 .DS_Store
 Thumbs.db
 
-# Env
-.env
+# ==========================
+# Large datasets only
+# (Keep trained models in Git)
+# ==========================
+data/raw/
+data/processed/
+*.csv
 
-# IDE
-.vscode/
-.idea/
+# SQLite database
+data/predictions.db
+
+# ==========================
+# Logs
+# ==========================
+*.log
+
+# ==========================
+# Temporary files
+# ==========================
+*.tmp
+*.bak
+*.swp
