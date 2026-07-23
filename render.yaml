@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: upi-fraud-api
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9

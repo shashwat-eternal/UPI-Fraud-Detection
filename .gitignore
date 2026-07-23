@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Node (used only for report generation script)
+node_modules/
+package-lock.json
+
+# Data & models (large files, don't push raw data or trained models to git)
+data/raw/*.csv
+data/processed/*.csv
+data/predictions.db
+models/*.pkl
+models/*.joblib
+models/generic/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+
+# IDE
+.vscode/
+.idea/

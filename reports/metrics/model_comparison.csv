@@ -1,0 +1,4 @@
+,Accuracy,Precision,Recall,F1 Score,ROC-AUC
+Decision Tree,0.9914,0.9349,0.9585,0.9466,0.9794
+Random Forest,0.9939,0.9508,0.9732,0.9619,0.999
+KNN,0.9788,0.7947,0.9891,0.8813,0.9962

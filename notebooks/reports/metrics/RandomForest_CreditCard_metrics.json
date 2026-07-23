@@ -1,0 +1,18 @@
+{
+  "model_name": "RandomForest_CreditCard",
+  "accuracy": 0.9984156847212595,
+  "precision": 0.9456521739130435,
+  "recall": 0.8877551020408163,
+  "f1_score": 0.9157894736842105,
+  "confusion_matrix": [
+    [
+      9996,
+      5
+    ],
+    [
+      11,
+      87
+    ]
+  ],
+  "roc_auc": 0.981418184712141
+}

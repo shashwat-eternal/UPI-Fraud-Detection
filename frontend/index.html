@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VaultPulse — UPI Fraud Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #08040f;
+    --bg-mid: #120a24;
+    --panel-border: rgba(255,255,255,0.12);
+    --violet: #8b5cf6;
+    --violet-2: #a78bfa;
+    --violet-glow: rgba(139,92,246,0.45);
+    --emerald: #12e8a6;
+    --emerald-glow: rgba(18,232,166,0.4);
+    --gold: #f6b93b;
+    --gold-glow: rgba(246,185,59,0.4);
+    --coral: #ff3d81;
+    --coral-glow: rgba(255,61,129,0.45);
+    --ink: #f5f1ff;
+    --dim: #a99bc9;
+    --dimmer: #5b4e7a;
+    --display: 'Sora', sans-serif;
+    --body-font: 'Manrope', sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse 120% 80% at 50% -10%, var(--bg-mid) 0%, var(--bg-deep) 55%);
+    color: var(--ink);
+    font-family: var(--body-font);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(110px);
+    opacity: 0.38;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob-1 { width: 620px; height: 620px; background: var(--violet); top: -220px; left: -160px; animation: drift1 26s ease-in-out infinite alternate; }
+  .blob-2 { width: 520px; height: 520px; background: var(--emerald); bottom: -200px; right: -140px; animation: drift2 32s ease-in-out infinite alternate; }
+  .blob-3 { width: 380px; height: 380px; background: var(--gold); top: 40%; right: 10%; opacity: 0.22; animation: drift3 22s ease-in-out infinite alternate; }
+  @keyframes drift1 { from { transform: translate(0,0) scale(1); } to { transform: translate(60px,40px) scale(1.12); } }
+  @keyframes drift2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-50px,-30px) scale(1.08); } }
+  @keyframes drift3 { from { transform: translate(0,0); } to { transform: translate(-40px,50px); } }
+  @media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
+
+  .grid-floor {
+    position: fixed;
+    left: -20%; right: -20%; bottom: -10%;
+    height: 340px;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(139,92,246,0.16) 0, rgba(139,92,246,0.16) 1px, transparent 1px, transparent 60px),
+      repeating-linear-gradient(0deg, rgba(139,92,246,0.16) 0, rgba(139,92,246,0.16) 1px, transparent 1px, transparent 60px);
+    transform: perspective(500px) rotateX(62deg);
+    mask-image: linear-gradient(to top, black, transparent 85%);
+    -webkit-mask-image: linear-gradient(to top, black, transparent 85%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .noise {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    opacity: 0.035; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 44px 20px 90px; position: relative; z-index: 1; }
+
+ 
+  .top-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 34px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-mark {
+    position: relative; width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .brand-mark .ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 1.5px solid var(--violet-glow);
+    animation: pulseRing 2.6s ease-out infinite;
+  }
+  .brand-mark .ring:nth-child(2) { animation-delay: 0.9s; }
+  @keyframes pulseRing { 0% { transform: scale(0.7); opacity: 0.8; } 100% { transform: scale(1.7); opacity: 0; } }
+  .brand-mark svg { position: relative; z-index: 1; }
+  .brand-text .eyebrow-small {
+    font-family: var(--mono); font-size: 10.5px; color: var(--violet-2);
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .brand-text .name { font-family: var(--display); font-weight: 700; font-size: 15px; }
+
+  .nav-link {
+    font-family: var(--mono); font-size: 11.5px; color: var(--emerald);
+    text-decoration: none; letter-spacing: 0.04em;
+    border: 1px solid rgba(18,232,166,0.35); padding: 9px 16px; border-radius: 999px;
+    background: rgba(18,232,166,0.07);
+    transition: all 0.2s;
+  }
+  .nav-link:hover { background: rgba(18,232,166,0.15); box-shadow: 0 0 20px var(--emerald-glow); }
+
+  .hero { margin-bottom: 40px; }
+  .hero-eyebrow {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.16em; color: var(--gold);
+    text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .hero-eyebrow::before { content: '◆'; font-size: 8px; }
+  h1 {
+    font-family: var(--display); font-size: 38px; font-weight: 800; margin: 0 0 12px;
+    letter-spacing: -0.02em; line-height: 1.1;
+    background: linear-gradient(120deg, var(--ink) 30%, var(--violet-2) 70%, var(--emerald) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero-sub { color: var(--dim); font-size: 14.5px; max-width: 60ch; line-height: 1.65; }
+
+ 
+  .layout { display: grid; grid-template-columns: 1fr 0.92fr; gap: 22px; align-items: start; perspective: 1400px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .glass {
+    background: linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.015));
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid var(--panel-border);
+    border-radius: 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease-out, box-shadow 0.3s;
+    transform-style: preserve-3d;
+  }
+  .glass::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,0.16), transparent 42%);
+    opacity: 0; transition: opacity 0.35s;
+  }
+  .glass.tilt-active::after { opacity: 1; }
+
+  .panel-inner { padding: 28px; position: relative; z-index: 1; }
+  .panel-label {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--dim); margin: 0 0 22px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-label .idx { color: var(--dimmer); }
+
+  
+  .field { margin-bottom: 15px; }
+  .field label {
+    display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.05em;
+    color: var(--dim); margin-bottom: 7px; text-transform: uppercase;
+  }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  input, select {
+    width: 100%; background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.14); color: var(--ink);
+    border-radius: 12px; padding: 11px 14px; font-size: 13.5px; font-family: var(--body-font);
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  }
+  input:focus, select:focus {
+    outline: none; border-color: var(--violet); background: rgba(139,92,246,0.08);
+    box-shadow: 0 0 0 4px var(--violet-glow);
+  }
+  select option { background: var(--bg-mid); }
+
+  .flags { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 20px; }
+  .flag-toggle {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 999px; padding: 9px 15px; font-size: 12.5px; font-family: var(--mono);
+    cursor: pointer; user-select: none; transition: all 0.2s;
+  }
+  .flag-toggle input { width: auto; accent-color: var(--coral); cursor: pointer; }
+  .flag-toggle.active {
+    border-color: var(--coral); color: var(--coral); background: rgba(255,61,129,0.1);
+    box-shadow: 0 0 16px rgba(255,61,129,0.25);
+  }
+
+  button.submit {
+    width: 100%;
+    background: linear-gradient(120deg, var(--violet), #6d28d9);
+    color: #fff; border: none; border-radius: 14px; padding: 15px;
+    font-size: 13.5px; font-weight: 700; font-family: var(--display);
+    letter-spacing: 0.01em; cursor: pointer; margin-top: 4px;
+    box-shadow: 0 10px 30px var(--violet-glow), inset 0 1px 0 rgba(255,255,255,0.25);
+    transition: transform 0.12s, box-shadow 0.2s;
+  }
+  button.submit:hover { transform: translateY(-2px); box-shadow: 0 14px 36px var(--violet-glow), inset 0 1px 0 rgba(255,255,255,0.3); }
+  button.submit:active { transform: translateY(0) scale(0.98); }
+  button.submit:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  .api-note {
+    font-family: var(--mono); font-size: 10px; color: var(--dimmer);
+    margin-top: 14px; line-height: 1.6; text-align: center;
+  }
+  .api-note code { color: var(--gold); }
+
+ 
+  .vault-scene { perspective: 1400px; margin-bottom: 20px; }
+  .flip-card {
+    position: relative; width: 100%; min-height: 540px;
+    transform-style: preserve-3d;
+    transition: transform 0.9s cubic-bezier(0.4, 0.2, 0.2, 1);
+  }
+  .flip-card.revealed { transform: rotateY(180deg); }
+  .flip-face {
+    position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px 20px; text-align: center;
+  }
+  .flip-front { }
+  .flip-back { transform: rotateY(180deg); justify-content: flex-start; padding-top: 14px; overflow-y: auto; max-height: 680px; }
+
+  .idle-mark { font-family: var(--mono); font-size: 11px; color: var(--dimmer); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 18px; }
+
+ 
+  .orb-ring {
+    width: 140px; height: 140px; border-radius: 50%;
+    background: conic-gradient(var(--ring-color, var(--violet)) calc(var(--pct, 0) * 1%), rgba(255,255,255,0.07) 0);
+    display: flex; align-items: center; justify-content: center;
+    filter: drop-shadow(0 0 20px var(--ring-glow, var(--violet-glow)));
+    transition: background 0.7s ease, filter 0.7s ease;
+    margin: 0 auto; flex-shrink: 0;
+  }
+  .orb-core {
+    width: 108px; height: 108px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 28%, rgba(255,255,255,0.4), var(--violet-2) 35%, var(--bg-mid) 100%);
+    box-shadow: inset -8px -8px 20px rgba(0,0,0,0.55), inset 6px 6px 16px rgba(255,255,255,0.18);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    animation: orbBreathe 3.4s ease-in-out infinite;
+  }
+  @keyframes orbBreathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+  .orb-pct { font-family: var(--mono); font-weight: 700; font-size: 22px; color: #fff; line-height: 1; }
+  .orb-label { font-family: var(--mono); font-size: 8.5px; color: rgba(255,255,255,0.65); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 4px; }
+
+  .verdict-tag {
+    font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: 0.02em;
+    padding: 8px 20px; border-radius: 999px; margin: 12px 0 8px; text-transform: uppercase; flex-shrink: 0;
+  }
+  .verdict-tag.fraud { background: rgba(255,61,129,0.14); color: var(--coral); border: 1px solid rgba(255,61,129,0.4); box-shadow: 0 0 24px rgba(255,61,129,0.2); }
+  .verdict-tag.safe { background: rgba(18,232,166,0.14); color: var(--emerald); border: 1px solid rgba(18,232,166,0.4); box-shadow: 0 0 24px rgba(18,232,166,0.2); }
+
+  .verdict-message { font-size: 12px; color: var(--dim); margin-bottom: 12px; max-width: 36ch; line-height: 1.4; flex-shrink: 0; }
+
+
+  .signals-block { width: 100%; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px; margin-top: 4px; }
+  .signals-block .label { font-family: var(--mono); font-size: 10px; color: var(--dimmer); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; text-align: left; }
+  .signal-chips { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-start; }
+  .signal-chip {
+    font-family: var(--mono); font-size: 10px; padding: 5px 11px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.14); color: var(--dimmer); transition: all 0.25s;
+  }
+  .signal-chip.lit { border-color: var(--gold); color: var(--gold); background: rgba(246,185,59,0.1); box-shadow: 0 0 12px var(--gold-glow); }
+
+  .error-box {
+    background: rgba(255,61,129,0.08); border: 1px solid rgba(255,61,129,0.3); color: var(--coral);
+    border-radius: 12px; padding: 13px 15px; font-size: 12px; margin-top: 14px; font-family: var(--mono); line-height: 1.5;
+  }
+
+  
+  .xai-block {
+    width: 100%; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px; margin-top: 14px; text-align: left;
+  }
+  .xai-title {
+    font-family: var(--mono); font-size: 10px; color: var(--violet-2); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .xai-reason-list { display: flex; flex-direction: column; gap: 8px; }
+  .xai-item {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 9px 12px; font-size: 11.5px; line-height: 1.4;
+  }
+  .xai-item.risk { border-left: 3px solid var(--coral); background: rgba(255,61,129,0.05); }
+  .xai-item.trust { border-left: 3px solid var(--emerald); background: rgba(18,232,166,0.05); }
+  .xai-header { display: flex; justify-content: space-between; margin-bottom: 4px; font-family: var(--mono); font-size: 10px; }
+  .xai-header .tag-risk { color: var(--coral); }
+  .xai-header .tag-trust { color: var(--emerald); }
+  .xai-bar-bg { width: 100%; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .xai-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+  .xai-bar-fill.risk { background: linear-gradient(90deg, var(--gold), var(--coral)); }
+  .xai-bar-fill.trust { background: linear-gradient(90deg, var(--emerald), var(--violet-2)); }
+
+  
+  .preset-toolbar {
+    margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .preset-label {
+    font-family: var(--mono); font-size: 10px; color: var(--gold); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+  }
+  .preset-buttons { display: flex; flex-wrap: wrap; gap: 7px; }
+  .preset-btn {
+    font-family: var(--mono); font-size: 10.5px; padding: 6px 11px; border-radius: 999px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.14); color: var(--ink);
+    cursor: pointer; transition: all 0.2s ease; user-select: none;
+  }
+  .preset-btn:hover {
+    background: rgba(139,92,246,0.15); border-color: var(--violet-2); box-shadow: 0 0 12px var(--violet-glow); transform: translateY(-1px);
+  }
+  .preset-btn.attack { border-color: rgba(255,61,129,0.35); }
+  .preset-btn.attack:hover { background: rgba(255,61,129,0.15); border-color: var(--coral); box-shadow: 0 0 12px var(--coral-glow); }
+
+ 
+  .rule-alert-box {
+    width: 100%; background: rgba(246,185,59,0.08); border: 1px solid rgba(246,185,59,0.3); border-radius: 10px;
+    padding: 10px 12px; margin-top: 12px; font-size: 11.5px; text-align: left;
+  }
+  .rule-alert-box.critical { background: rgba(255,61,129,0.12); border-color: rgba(255,61,129,0.4); color: var(--coral); }
+  .rule-alert-title { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; display: flex; justify-content: space-between; }
+
+  
+  .log-panel { margin-top: 20px; }
+  .log-row {
+    display: grid; grid-template-columns: 8px 1fr 58px; gap: 12px; align-items: center;
+    padding: 11px 4px; border-bottom: 1px solid rgba(255,255,255,0.07); font-size: 12px; font-family: var(--mono);
+    transition: transform 0.15s;
+  }
+  .log-row:hover { transform: translateX(3px); }
+  .log-row:last-child { border-bottom: none; }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .log-dot.fraud { background: var(--coral); box-shadow: 0 0 8px var(--coral); }
+  .log-dot.safe { background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+  .log-amount { color: var(--dim); }
+  .log-pct { text-align: right; color: var(--ink); }
+  .log-empty { color: var(--dimmer); font-size: 12px; font-family: var(--mono); padding: 10px 4px; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeUp 0.6s ease both; }
+  .fade-in.d1 { animation-delay: 0.05s; }
+  .fade-in.d2 { animation-delay: 0.15s; }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+<div class="grid-floor"></div>
+<div class="noise"></div>
+
+<div class="wrap">
+  <div class="top-nav fade-in">
+    <div class="brand">
+      <div class="brand-mark">
+        <div class="ring"></div>
+        <div class="ring"></div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5F1FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <div class="brand-text">
+        <div class="eyebrow-small">VaultPulse · AI Risk Engine</div>
+        <div class="name">UPI Fraud Detection</div>
+      </div>
+    </div>
+    <div class="nav-links" style="display:flex; gap:10px;">
+      <a class="nav-link" href="analytics.html" id="analyticsLink">Analytics Map 📊</a>
+      <a class="nav-link" href="live.html" id="liveMonitorLink">Live Monitor ↗</a>
+    </div>
+
+  </div>
+
+  <div class="hero fade-in d1">
+    <div class="hero-eyebrow">Signal Intake · Single Transaction</div>
+    <h1>Transaction Risk Console</h1>
+    <div class="hero-sub">
+      Submits one transaction to the inference engine (Random Forest, 99.4% test
+      accuracy) and reads back a calibrated fraud probability in real time.
+    </div>
+  </div>
+
+  <div class="layout fade-in d2">
+    <div class="glass" id="formPanel">
+      <div class="panel-inner">
+        <div class="panel-label">Transaction Intake <span class="idx">01</span></div>
+        <div class="preset-toolbar">
+          <div class="preset-label">1-Click Attack Scenarios ⚡</div>
+          <div class="preset-buttons">
+            <button type="button" class="preset-btn attack" onclick="applyPreset('sim_swap')">⚡ SIM Swap</button>
+            <button type="button" class="preset-btn attack" onclick="applyPreset('micro_probe')">🔄 Micro-Probe</button>
+            <button type="button" class="preset-btn attack" onclick="applyPreset('device_hijack')">🎭 Device Hijack</button>
+            <button type="button" class="preset-btn attack" onclick="applyPreset('blacklist')">🚫 Blacklist Entity</button>
+            <button type="button" class="preset-btn" onclick="applyPreset('safe')">🛡️ Safe Transfer</button>
+          </div>
+        </div>
+        <form id="txnForm">
+          <div class="row-2">
+            <div class="field">
+              <label for="sender_bank">Sender Bank</label>
+              <select id="sender_bank">
+                <option>SBI</option><option>HDFC</option><option>ICICI</option>
+                <option>Axis</option><option>PNB</option><option>Kotak</option>
+                <option>BOB</option><option>Canara</option><option>Union Bank</option>
+                <option>IDFC First</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="receiver_bank">Receiver Bank</label>
+              <select id="receiver_bank">
+                <option>HDFC</option><option>SBI</option><option>ICICI</option>
+                <option>Axis</option><option>PNB</option><option>Kotak</option>
+                <option>BOB</option><option>Canara</option><option>Union Bank</option>
+                <option>IDFC First</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row-2">
+            <div class="field">
+              <label for="transaction_amount">Amount (₹)</label>
+              <input type="number" id="transaction_amount" value="1500" min="1" step="0.01">
+            </div>
+            <div class="field">
+              <label for="transactions_last_24h">Txns / Last 24h</label>
+              <input type="number" id="transactions_last_24h" value="2" min="0">
+            </div>
+          </div>
+
+          <div class="row-2">
+            <div class="field">
+              <label for="transaction_location">Location</label>
+              <select id="transaction_location">
+                <option>Lucknow</option><option>Delhi</option><option>Mumbai</option>
+                <option>Bengaluru</option><option>Hyderabad</option><option>Chennai</option>
+                <option>Kolkata</option><option>Pune</option><option>Jaipur</option>
+                <option>Patna</option><option>Bhopal</option><option>Kanpur</option>
+                <option>Rural-UP</option><option>Rural-Bihar</option><option>Rural-MP</option>
+                <option>Rural-Rajasthan</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="device_type">Device</label>
+              <select id="device_type">
+                <option>Android</option><option>iOS</option><option>Web</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="timestamp">Timestamp</label>
+            <input type="datetime-local" id="timestamp">
+          </div>
+
+          <div class="field">
+            <label>Risk Flags</label>
+            <div class="flags">
+              <label class="flag-toggle" data-target="is_new_beneficiary">
+                <input type="checkbox" id="is_new_beneficiary"> New beneficiary
+              </label>
+              <label class="flag-toggle" data-target="location_mismatch_flag">
+                <input type="checkbox" id="location_mismatch_flag"> Location mismatch
+              </label>
+              <label class="flag-toggle" data-target="device_change_flag">
+                <input type="checkbox" id="device_change_flag"> Device change
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" class="submit" id="submitBtn">Run Risk Analysis</button>
+          <div class="api-note">
+            Endpoint: <code id="apiBaseDisplay">http://127.0.0.1:8000/predict</code>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div>
+      <div class="glass vault-scene" id="vaultPanel">
+        <div class="panel-inner" style="min-height:430px; padding:28px 28px 22px;">
+          <div class="panel-label">Vault Core <span class="idx">02</span></div>
+          <div class="flip-card" id="flipCard">
+            <div class="flip-face flip-front">
+              <div class="orb-ring" id="orbRingIdle" style="--pct:0; --ring-color: rgba(255,255,255,0.15); --ring-glow: rgba(255,255,255,0.05);">
+                <div class="orb-core" style="background: radial-gradient(circle at 34% 28%, rgba(255,255,255,0.25), rgba(255,255,255,0.05) 40%, var(--bg-mid) 100%);">
+                  <div class="orb-pct" style="color: var(--dimmer);">--</div>
+                </div>
+              </div>
+              <div class="idle-mark">Awaiting Transaction</div>
+            </div>
+            <div class="flip-face flip-back">
+              <div class="orb-ring" id="orbRing" style="--pct:0;">
+                <div class="orb-core">
+                  <div class="orb-pct" id="orbPct">0%</div>
+                  <div class="orb-label">Fraud Risk</div>
+                </div>
+              </div>
+              <div class="verdict-tag safe" id="verdictTag" style="visibility:hidden;">—</div>
+              <div class="verdict-message" id="verdictMessage"></div>
+              <div class="signals-block">
+                <div class="label">Active Risk Signals</div>
+                <div class="signal-chips" id="signalChips">
+                  <span class="signal-chip">NEW BENEFICIARY</span>
+                  <span class="signal-chip">LOCATION MISMATCH</span>
+                  <span class="signal-chip">DEVICE CHANGE</span>
+                  <span class="signal-chip">NIGHT HOURS</span>
+                  <span class="signal-chip">HIGH VELOCITY</span>
+                </div>
+              </div>
+              <div id="ruleAlertArea"></div>
+              <div class="xai-block" id="xaiBlock" style="display:none;">
+                <div class="xai-title">Explainable AI (XAI) Reason Codes <span>🔍</span></div>
+                <div class="xai-reason-list" id="xaiReasonList"></div>
+              </div>
+            </div>
+          </div>
+          <div id="errorArea"></div>
+        </div>
+      </div>
+
+      <div class="glass log-panel" id="logPanel">
+        <div class="panel-inner" style="padding:24px 26px;">
+          <div class="panel-label">Session Log <span class="idx">03</span></div>
+          <div id="historyList">
+            <div class="log-empty">No scans yet this session.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const params = new URLSearchParams(window.location.search);
+const API_BASE = params.get("api") || "http://127.0.0.1:8000"; // <-- EDIT THIS after deploying
+document.getElementById("apiBaseDisplay").textContent = `${API_BASE}/predict`;
+
+
+if (window.location.search) {
+  document.getElementById("liveMonitorLink").href = "live.html" + window.location.search;
+  document.getElementById("analyticsLink").href = "analytics.html" + window.location.search;
+}
+
+
+const now = new Date();
+now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+document.getElementById("timestamp").value = now.toISOString().slice(0, 16);
+
+document.querySelectorAll(".flag-toggle").forEach(el => {
+  const checkbox = el.querySelector("input");
+  checkbox.addEventListener("change", () => el.classList.toggle("active", checkbox.checked));
+});
+
+
+const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function enableTilt(el, max = 6) {
+  if (prefersReducedMotion) return;
+  el.addEventListener("mousemove", (e) => {
+    const rect = el.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    const rx = (py - 0.5) * -max;
+    const ry = (px - 0.5) * max;
+    el.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+    el.style.setProperty("--mx", `${px * 100}%`);
+    el.style.setProperty("--my", `${py * 100}%`);
+    el.classList.add("tilt-active");
+  });
+  el.addEventListener("mouseleave", () => {
+    el.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
+    el.classList.remove("tilt-active");
+  });
+}
+["vaultPanel", "logPanel"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) enableTilt(el, 3);
+});
+
+
+
+const flipCard = document.getElementById("flipCard");
+const orbRing = document.getElementById("orbRing");
+const orbPct = document.getElementById("orbPct");
+const verdictTag = document.getElementById("verdictTag");
+const verdictMessage = document.getElementById("verdictMessage");
+let hasRevealed = false;
+
+function riskTier(frac) {
+  if (frac < 0.4) return { color: "var(--emerald)", glow: "var(--emerald-glow)" };
+  if (frac < 0.7) return { color: "var(--gold)", glow: "var(--gold-glow)" };
+  return { color: "var(--coral)", glow: "var(--coral-glow)" };
+}
+
+function updateOrb(frac) {
+  const tier = riskTier(frac);
+  orbRing.style.setProperty("--pct", (frac * 100).toFixed(1));
+  orbRing.style.setProperty("--ring-color", tier.color);
+  orbRing.style.setProperty("--ring-glow", tier.glow);
+  orbPct.textContent = (frac * 100).toFixed(1) + "%";
+}
+
+
+const form = document.getElementById("txnForm");
+const submitBtn = document.getElementById("submitBtn");
+const errorArea = document.getElementById("errorArea");
+const historyList = document.getElementById("historyList");
+const history = [];
+
+const CHIP_LABELS = {
+  is_new_beneficiary: "NEW BENEFICIARY",
+  location_mismatch_flag: "LOCATION MISMATCH",
+  device_change_flag: "DEVICE CHANGE",
+  is_night: "NIGHT HOURS",
+  high_velocity: "HIGH VELOCITY",
+};
+
+function updateSignalChips(payload) {
+  const hour = new Date(payload.timestamp).getHours();
+  const active = {
+    is_new_beneficiary: payload.is_new_beneficiary,
+    location_mismatch_flag: payload.location_mismatch_flag,
+    device_change_flag: payload.device_change_flag,
+    is_night: (hour >= 23 || hour <= 4),
+    high_velocity: payload.transactions_last_24h >= 5,
+  };
+  document.getElementById("signalChips").innerHTML = Object.entries(CHIP_LABELS).map(([key, label]) =>
+    `<span class="signal-chip ${active[key] ? "lit" : ""}">${label}</span>`
+  ).join("");
+}
+
+function addHistoryRow(payload, data) {
+  history.unshift({ payload, data });
+  if (history.length > 6) history.pop();
+  historyList.innerHTML = history.map(h => `
+    <div class="log-row">
+      <span class="log-dot ${h.data.prediction === "Fraud" ? "fraud" : "safe"}"></span>
+      <span class="log-amount">₹${h.payload.transaction_amount.toLocaleString()} · ${h.payload.sender_bank}→${h.payload.receiver_bank}</span>
+      <span class="log-pct">${(h.data.fraud_probability * 100).toFixed(1)}%</span>
+    </div>
+  `).join("");
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Analyzing...";
+  errorArea.innerHTML = "";
+
+  const payload = {
+    sender_bank: document.getElementById("sender_bank").value,
+    receiver_bank: document.getElementById("receiver_bank").value,
+    transaction_amount: parseFloat(document.getElementById("transaction_amount").value),
+    timestamp: document.getElementById("timestamp").value + ":00",
+    transaction_location: document.getElementById("transaction_location").value,
+    device_type: document.getElementById("device_type").value,
+    is_new_beneficiary: document.getElementById("is_new_beneficiary").checked,
+    location_mismatch_flag: document.getElementById("location_mismatch_flag").checked,
+    device_change_flag: document.getElementById("device_change_flag").checked,
+    transactions_last_24h: parseInt(document.getElementById("transactions_last_24h").value, 10),
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+
+    const data = await res.json();
+    const frac = data.fraud_probability;
+    const isFraud = data.prediction === "Fraud";
+
+    if (!hasRevealed) {
+      flipCard.classList.add("revealed");
+      hasRevealed = true;
+    }
+
+    updateOrb(frac);
+    verdictTag.className = "verdict-tag " + (isFraud ? "fraud" : "safe");
+    verdictTag.style.visibility = "visible";
+    verdictTag.textContent = data.prediction;
+    verdictMessage.textContent = data.message;
+
+    updateSignalChips(payload);
+    renderRuleAlerts(data.rule_summary);
+    renderXaiExplanations(data.explanation);
+    addHistoryRow(payload, data);
+  } catch (err) {
+    errorArea.innerHTML = `<div class="error-box">${err.message}<br><br>Make sure the API is running:<br><code>uvicorn app.main:app --reload</code></div>`;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Run Risk Analysis";
+  }
+});
+
+function renderRuleAlerts(ruleSummary) {
+  const area = document.getElementById("ruleAlertArea");
+  if (!ruleSummary || !ruleSummary.triggered_rules || ruleSummary.triggered_rules.length === 0) {
+    area.innerHTML = "";
+    return;
+  }
+  const rules = ruleSummary.triggered_rules;
+  area.innerHTML = rules.map(r => `
+    <div class="rule-alert-box ${r.severity === "CRITICAL" ? "critical" : ""}">
+      <div class="rule-alert-title">
+        <span>🚨 ${r.rule_name}</span>
+        <span>${r.severity}</span>
+      </div>
+      <div>${r.description}</div>
+    </div>
+  `).join("");
+}
+
+
+function renderXaiExplanations(explanation) {
+  const xaiBlock = document.getElementById("xaiBlock");
+  const xaiReasonList = document.getElementById("xaiReasonList");
+  if (!explanation) {
+    xaiBlock.style.display = "none";
+    return;
+  }
+  const drivers = explanation.risk_drivers || [];
+  const trusts = explanation.trust_factors || [];
+
+  let html = "";
+  drivers.forEach(item => {
+    const pct = Math.round(item.impact_score * 100);
+    html += `
+      <div class="xai-item risk">
+        <div class="xai-header">
+          <span class="tag-risk">▲ RISK FACTOR</span>
+          <span>${pct}% Impact</span>
+        </div>
+        <div>${item.reason_code}</div>
+        <div class="xai-bar-bg"><div class="xai-bar-fill risk" style="width: ${pct}%"></div></div>
+      </div>
+    `;
+  });
+
+  trusts.forEach(item => {
+    const pct = Math.round(item.impact_score * 100);
+    html += `
+      <div class="xai-item trust">
+        <div class="xai-header">
+          <span class="tag-trust">▼ TRUST FACTOR</span>
+          <span>${pct}% Impact</span>
+        </div>
+        <div>${item.reason_code}</div>
+        <div class="xai-bar-bg"><div class="xai-bar-fill trust" style="width: ${pct}%"></div></div>
+      </div>
+    `;
+  });
+
+  if (html) {
+    xaiReasonList.innerHTML = html;
+    xaiBlock.style.display = "block";
+  } else {
+    xaiBlock.style.display = "none";
+  }
+}
+
+const PRESET_SCENARIOS = {
+  sim_swap: {
+    sender_bank: "ICICI", receiver_bank: "SBI", transaction_amount: 48500.0,
+    transactions_last_24h: 8, location_mismatch_flag: true, device_change_flag: true,
+    is_new_beneficiary: true, hour: "02:15"
+  },
+  micro_probe: {
+    sender_bank: "Axis", receiver_bank: "PNB", transaction_amount: 2.50,
+    transactions_last_24h: 12, location_mismatch_flag: false, device_change_flag: false,
+    is_new_beneficiary: false, hour: "14:20"
+  },
+  device_hijack: {
+    sender_bank: "Kotak", receiver_bank: "HDFC", transaction_amount: 28000.0,
+    transactions_last_24h: 6, location_mismatch_flag: true, device_change_flag: true,
+    is_new_beneficiary: true, hour: "23:45"
+  },
+  blacklist: {
+    sender_bank: "SUSPICIOUS_BANK_TEST", receiver_bank: "SBI", transaction_amount: 15000.0,
+    transactions_last_24h: 2, location_mismatch_flag: false, device_change_flag: false,
+    is_new_beneficiary: true, hour: "11:30"
+  },
+  safe: {
+    sender_bank: "HDFC", receiver_bank: "SBI", transaction_amount: 1500.0,
+    transactions_last_24h: 1, location_mismatch_flag: false, device_change_flag: false,
+    is_new_beneficiary: false, hour: "15:00"
+  }
+};
+
+function applyPreset(presetKey) {
+  const data = PRESET_SCENARIOS[presetKey];
+  if (!data) return;
+
+  const senderBank = document.getElementById("sender_bank");
+  let foundSender = false;
+  for (let i = 0; i < senderBank.options.length; i++) {
+    if (senderBank.options[i].value === data.sender_bank) {
+      senderBank.selectedIndex = i;
+      foundSender = true;
+      break;
+    }
+  }
+  if (!foundSender) {
+    const opt = document.createElement("option");
+    opt.value = data.sender_bank;
+    opt.textContent = data.sender_bank;
+    senderBank.appendChild(opt);
+    senderBank.value = data.sender_bank;
+  }
+
+  document.getElementById("receiver_bank").value = data.receiver_bank;
+  document.getElementById("transaction_amount").value = data.transaction_amount;
+  document.getElementById("transactions_last_24h").value = data.transactions_last_24h;
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  document.getElementById("timestamp").value = `${dateStr}T${data.hour}`;
+
+  const setFlag = (id, val) => {
+    const cb = document.getElementById(id);
+    cb.checked = val;
+    const parent = cb.closest(".flag-toggle");
+    if (parent) parent.classList.toggle("active", val);
+  };
+
+  setFlag("is_new_beneficiary", data.is_new_beneficiary);
+  setFlag("location_mismatch_flag", data.location_mismatch_flag);
+  setFlag("device_change_flag", data.device_change_flag);
+
+  form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event("submit"));
+}
+</script>
+</body>
+</html>
+

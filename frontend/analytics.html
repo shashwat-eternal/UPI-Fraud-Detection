@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VaultPulse Analytics — UPI Fraud Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!-- Leaflet.js CSS for Threat Heatmap -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    --bg-deep: #08040f;
+    --bg-mid: #120a24;
+    --panel-border: rgba(255,255,255,0.12);
+    --violet: #8b5cf6;
+    --violet-2: #a78bfa;
+    --violet-glow: rgba(139,92,246,0.45);
+    --emerald: #12e8a6;
+    --emerald-glow: rgba(18,232,166,0.4);
+    --gold: #f6b93b;
+    --gold-glow: rgba(246,185,59,0.4);
+    --coral: #ff3d81;
+    --coral-glow: rgba(255,61,129,0.45);
+    --ink: #f5f1ff;
+    --dim: #a99bc9;
+    --dimmer: #5b4e7a;
+    --display: 'Sora', sans-serif;
+    --body-font: 'Manrope', sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse 120% 80% at 50% -10%, var(--bg-mid) 0%, var(--bg-deep) 55%);
+    color: var(--ink);
+    font-family: var(--body-font);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 40px 20px 80px; position: relative; z-index: 1; }
+
+  .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-mark { position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+  .brand-mark .ring { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid var(--gold-glow); animation: pulseRing 2.6s ease-out infinite; }
+  @keyframes pulseRing { 0% { transform: scale(0.7); opacity: 0.8; } 100% { transform: scale(1.7); opacity: 0; } }
+  .brand-mark svg { position: relative; z-index: 1; }
+  .brand-text .eyebrow-small { font-family: var(--mono); font-size: 10px; color: var(--gold); letter-spacing: 0.14em; text-transform: uppercase; }
+  .brand-text .name { font-family: var(--display); font-weight: 700; font-size: 14px; }
+  .nav-links { display: flex; gap: 10px; }
+  .nav-link {
+    font-family: var(--mono); font-size: 11.5px; color: var(--violet-2); text-decoration: none; letter-spacing: 0.04em;
+    border: 1px solid rgba(167,139,250,0.35); padding: 8px 16px; border-radius: 999px; background: rgba(167,139,250,0.07);
+    transition: all 0.2s;
+  }
+  .nav-link:hover { background: rgba(167,139,250,0.15); box-shadow: 0 0 20px var(--violet-glow); }
+
+  .header-row { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 26px; }
+  .hero-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; color: var(--gold); text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .hero-eyebrow::before { content: '◆'; font-size: 8px; }
+  h1 {
+    font-family: var(--display); font-size: 32px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.02em;
+    background: linear-gradient(120deg, var(--ink) 30%, var(--gold) 70%, var(--coral) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero-sub { color: var(--dim); font-size: 13.5px; max-width: 58ch; line-height: 1.55; }
+
+  button.btn-export {
+    background: linear-gradient(120deg, var(--gold), #d97706); color: #000; font-weight: 700;
+    border: none; border-radius: 999px; padding: 11px 22px; font-size: 12.5px; font-family: var(--mono);
+    cursor: pointer; box-shadow: 0 8px 24px var(--gold-glow); transition: transform 0.15s;
+  }
+  button.btn-export:hover { transform: translateY(-2px); }
+
+  .glass {
+    background: linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.015));
+    backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid var(--panel-border); border-radius: 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  @media (max-width: 768px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+  .stat-card { padding: 18px 20px; }
+  .stat-card .label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dimmer); margin-bottom: 6px; }
+  .stat-card .value { font-size: 26px; font-weight: 700; font-family: var(--mono); color: var(--ink); }
+  .stat-card .value.danger { color: var(--coral); }
+  .stat-card .value.accent { color: var(--gold); }
+
+  .grid-2 { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; margin-bottom: 24px; }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .map-panel { overflow: hidden; position: relative; }
+  .panel-header { padding: 18px 22px; border-bottom: 1px solid rgba(255,255,255,0.08); font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); display: flex; justify-content: space-between; }
+  #threatMap { width: 100%; height: 380px; background: #0b0716; }
+
+  .chart-panel { padding: 22px; }
+  .chart-container { height: 320px; display: flex; align-items: flex-end; gap: 4px; padding-top: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+  .chart-bar { width: 100%; max-width: 16px; border-radius: 4px 4px 0 0; background: linear-gradient(0deg, var(--violet), var(--gold)); transition: height 0.4s ease; min-height: 2px; }
+  .chart-bar.high-risk { background: linear-gradient(0deg, var(--gold), var(--coral)); }
+  .bar-label { font-family: var(--mono); font-size: 9px; color: var(--dimmer); margin-top: 6px; }
+
+  .table-panel { overflow: hidden; margin-bottom: 20px; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; }
+  table.data-table th { font-family: var(--mono); font-size: 10px; text-transform: uppercase; color: var(--dimmer); letter-spacing: 0.06em; padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); }
+  table.data-table td { padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); font-family: var(--mono); }
+  .pill-status { padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; display: inline-block; }
+  .pill-status.safe { background: rgba(18,232,166,0.14); color: var(--emerald); }
+  .pill-status.warning { background: rgba(246,185,59,0.14); color: var(--gold); }
+  .pill-status.danger { background: rgba(255,61,129,0.14); color: var(--coral); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-nav">
+    <div class="brand">
+      <div class="brand-mark">
+        <div class="ring"></div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5F1FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <div class="brand-text">
+        <div class="eyebrow-small">VaultPulse · Intelligence</div>
+        <div class="name">Threat Analytics</div>
+      </div>
+    </div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">← Console</a>
+      <a class="nav-link" href="live.html">Live Feed ↗</a>
+    </div>
+  </div>
+
+  <div class="header-row">
+    <div>
+      <div class="hero-eyebrow">Geographic & Behavioral Intelligence</div>
+      <h1>Threat Analytics & Map</h1>
+      <div class="hero-sub">
+        Aggregates threat telemetry across Indian regions, hourly velocity patterns, and logged fraud incidents.
+      </div>
+    </div>
+    <button class="btn-export" onclick="exportAuditReport()">📥 Export Audit CSV</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="glass stat-card">
+      <div class="label">Total Scanned</div>
+      <div class="value" id="statTotal">0</div>
+    </div>
+    <div class="glass stat-card">
+      <div class="label">Total Flagged Fraud</div>
+      <div class="value danger" id="statFraud">0</div>
+    </div>
+    <div class="glass stat-card">
+      <div class="label">System Fraud Rate</div>
+      <div class="value accent" id="statRate">0.0%</div>
+    </div>
+    <div class="glass stat-card">
+      <div class="label">Mean Risk Index</div>
+      <div class="value" id="statAvgProb">0.0%</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="glass map-panel">
+      <div class="panel-header"><span>Geographic Fraud Density Map 🗺️</span><span>Live Telemetry</span></div>
+      <div id="threatMap"></div>
+    </div>
+
+    <div class="glass chart-panel">
+      <div class="panel-header" style="padding:0 0 14px 0; border:none;"><span>Hourly Fraud Distribution 📈</span></div>
+      <div class="chart-container" id="chartContainer"></div>
+    </div>
+  </div>
+
+  <div class="glass table-panel">
+    <div class="panel-header"><span>Regional Threat Intelligence Breakdown</span></div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Location</th>
+          <th>Total Scanned</th>
+          <th>Flagged Frauds</th>
+          <th>Fraud Rate</th>
+          <th>Mean Risk Index</th>
+          <th>Threat Status</th>
+        </tr>
+      </thead>
+      <tbody id="locationTableBody">
+        <tr><td colspan="6" style="text-align:center; color:var(--dimmer); padding:30px;">Loading telemetry...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Leaflet.js JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const API_BASE = params.get("api") || "http://127.0.0.1:8000";
+
+let map = L.map('threatMap').setView([22.5937, 78.9629], 5);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; CartoDB',
+  maxZoom: 18
+}).addTo(map);
+
+async function loadAnalyticsData() {
+  try {
+    const [summaryRes, locRes, hourlyRes] = await Promise.all([
+      fetch(`${API_BASE}/analytics/summary`),
+      fetch(`${API_BASE}/analytics/locations`),
+      fetch(`${API_BASE}/analytics/hourly`)
+    ]);
+
+    const summary = await summaryRes.json();
+    const locations = (await locRes.json()).locations || [];
+    const hourly = (await hourlyRes.json()).hourly || [];
+
+    // Render Stats
+    document.getElementById("statTotal").textContent = summary.total_scanned.toLocaleString();
+    document.getElementById("statFraud").textContent = summary.total_fraud.toLocaleString();
+    document.getElementById("statRate").textContent = (summary.fraud_rate * 100).toFixed(1) + "%";
+    document.getElementById("statAvgProb").textContent = (summary.avg_fraud_probability * 100).toFixed(1) + "%";
+
+    // Render Map Markers & Table
+    renderMapAndTable(locations);
+
+    // Render Hourly Chart
+    renderHourlyChart(hourly);
+  } catch (err) {
+    console.error("Failed to load analytics:", err);
+  }
+}
+
+function renderMapAndTable(locations) {
+  const tbody = document.getElementById("locationTableBody");
+  if (locations.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--dimmer); padding:30px;">No regional telemetry logged yet. Run transactions on the console or live feed!</td></tr>`;
+    return;
+  }
+
+  let tableHtml = "";
+  locations.forEach(loc => {
+    const rate = loc.fraud_rate;
+    let statusClass = "safe";
+    let statusText = "NORMAL";
+
+    let circleColor = "#12e8a6";
+    if (rate > 0.35) {
+      statusClass = "danger";
+      statusText = "HIGH THREAT";
+      circleColor = "#ff3d81";
+    } else if (rate > 0.1) {
+      statusClass = "warning";
+      statusText = "ELEVATED";
+      circleColor = "#f6b93b";
+    }
+
+    // Leaflet Circle Marker
+    L.circleMarker(loc.coordinates, {
+      radius: Math.max(8, Math.min(24, loc.total_scanned * 2)),
+      color: circleColor,
+      fillColor: circleColor,
+      fillOpacity: 0.5,
+      weight: 2
+    }).addTo(map).bindPopup(`
+      <div style="font-family:sans-serif; font-size:12px; color:#111;">
+        <strong>${loc.location}</strong><br/>
+        Total Scanned: ${loc.total_scanned}<br/>
+        Frauds Flagged: ${loc.total_fraud} (${(rate*100).toFixed(1)}%)
+      </div>
+    `);
+
+    tableHtml += `
+      <tr>
+        <td><strong>${loc.location}</strong></td>
+        <td>${loc.total_scanned}</td>
+        <td>${loc.total_fraud}</td>
+        <td>${(rate * 100).toFixed(1)}%</td>
+        <td>${(loc.avg_fraud_probability * 100).toFixed(1)}%</td>
+        <td><span class="pill-status ${statusClass}">${statusText}</span></td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = tableHtml;
+}
+
+function renderHourlyChart(hourly) {
+  const container = document.getElementById("chartContainer");
+  const maxVal = Math.max(...hourly.map(h => h.total_scanned), 1);
+
+  container.innerHTML = hourly.map(h => {
+    const heightPct = Math.max(5, (h.total_scanned / maxVal) * 100);
+    const isHigh = h.fraud_rate > 0.25;
+    return `
+      <div class="chart-bar-wrap" title="${h.hour}:00 - ${h.total_scanned} txns (${(h.fraud_rate*100).toFixed(1)}% fraud)">
+        <div class="chart-bar ${isHigh ? "high-risk" : ""}" style="height: ${heightPct}%"></div>
+        <div class="bar-label">${h.hour}h</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function exportAuditReport() {
+  window.location.href = `${API_BASE}/analytics/export`;
+}
+
+loadAnalyticsData();
+</script>
+</body>
+</html>
