@@ -128,8 +128,8 @@
       </div>
     </div>
     <div class="nav-links">
-      <a class="nav-link" href="index.html">← Console</a>
-      <a class="nav-link" href="live.html">Live Feed ↗</a>
+      <a class="nav-link" href="index.html" id="consoleLink">← Console</a>
+      <a class="nav-link" href="live.html" id="liveLink">Live Feed ↗</a>
     </div>
   </div>
 
@@ -198,14 +198,28 @@
 <!-- Leaflet.js JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const params = new URLSearchParams(window.location.search);
-const API_BASE = params.get("api") || "http://127.0.0.1:8000";
+const getApiBase = () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("api")) return params.get("api");
+  if (window.location.protocol.startsWith("http")) return window.location.origin;
+  return "http://127.0.0.1:8000";
+};
+const API_BASE = getApiBase();
+
+if (window.location.search) {
+  const consoleLink = document.getElementById("consoleLink");
+  const liveLink = document.getElementById("liveLink");
+  if (consoleLink) consoleLink.href = "index.html" + window.location.search;
+  if (liveLink) liveLink.href = "live.html" + window.location.search;
+}
 
 let map = L.map('threatMap').setView([22.5937, 78.9629], 5);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; CartoDB',
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
   maxZoom: 18
 }).addTo(map);
+
+setTimeout(() => { map.invalidateSize(); }, 400);
 
 async function loadAnalyticsData() {
   try {

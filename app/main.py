@@ -1,7 +1,10 @@
 from contextlib import asynccontextmanager
 
+import os
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.schemas import TransactionRequest, PredictionResponse, RuleConfigSchema
 from app.predict import predict_transaction, load_artifacts
@@ -12,6 +15,8 @@ from app.db import (
     get_location_stats, get_hourly_stats, export_predictions_csv
 )
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
 
 
 @asynccontextmanager
@@ -31,14 +36,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Allow the local static frontend (Day 10) to call this API from a file:// or
-# localhost origin during development.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if os.path.exists(FRONTEND_DIR):
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
 @app.get("/")
@@ -47,7 +53,37 @@ def root():
         "message": "UPI Fraud Detection API is running.",
         "docs": "/docs",
         "health": "/health",
+        "console": "/console",
+        "analytics": "/analytics",
+        "live": "/live",
     }
+
+
+@app.get("/console")
+@app.get("/index.html")
+def console_page():
+    index_path = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    raise HTTPException(status_code=404, detail="index.html not found")
+
+
+@app.get("/analytics")
+@app.get("/analytics.html")
+def analytics_page():
+    analytics_path = os.path.join(FRONTEND_DIR, "analytics.html")
+    if os.path.exists(analytics_path):
+        return FileResponse(analytics_path)
+    raise HTTPException(status_code=404, detail="analytics.html not found")
+
+
+@app.get("/live")
+@app.get("/live.html")
+def live_page():
+    live_path = os.path.join(FRONTEND_DIR, "live.html")
+    if os.path.exists(live_path):
+        return FileResponse(live_path)
+    raise HTTPException(status_code=404, detail="live.html not found")
 
 
 @app.get("/health")

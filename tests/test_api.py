@@ -197,3 +197,10 @@ def test_analytics_export_csv_endpoint(client, monkeypatch, tmp_path):
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/csv")
     assert "id,logged_at" in r.text
+
+
+def test_frontend_page_routes(client):
+    assert client.get("/analytics").status_code == 200
+    assert client.get("/analytics.html").status_code == 200
+    assert client.get("/live").status_code == 200
+    assert client.get("/live.html").status_code == 200

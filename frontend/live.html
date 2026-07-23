@@ -295,9 +295,13 @@
 
 <script>
 // API base: defaults to localhost for local dev. After deploying the backend,
-// either edit the default below, or pass ?api=https://your-backend-url on the page URL.
-const params = new URLSearchParams(window.location.search);
-const API_BASE = params.get("api") || "http://127.0.0.1:8000"; // <-- EDIT THIS after deploying
+const getApiBase = () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("api")) return params.get("api");
+  if (window.location.protocol.startsWith("http")) return window.location.origin;
+  return "http://127.0.0.1:8000";
+};
+const API_BASE = getApiBase();
 const API_URL = new URL(API_BASE);
 const WS_PROTOCOL = API_URL.protocol === "https:" ? "wss:" : "ws:";
 const API_HOST = API_URL.host;

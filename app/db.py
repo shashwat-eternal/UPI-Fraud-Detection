@@ -42,6 +42,61 @@ def _ensure_schema(conn: sqlite3.Connection):
     conn.commit()
 
 
+def _seed_initial_telemetry(conn: sqlite3.Connection):
+    """Seed initial sample telemetry records so Threat Analytics and Map display
+    data immediately upon deployment even before user predictions are logged."""
+    if os.environ.get("DATABASE_PATH") or os.environ.get("PYTEST_CURRENT_TEST"):
+        return
+
+    cursor = conn.execute("SELECT COUNT(*) FROM predictions")
+    if cursor.fetchone()[0] > 0:
+        return
+
+    sample_locations = [
+        ("Delhi", 18, 4, 0.22),
+        ("Mumbai", 22, 3, 0.14),
+        ("Bengaluru", 16, 2, 0.08),
+        ("Lucknow", 12, 5, 0.42),
+        ("Hyderabad", 15, 3, 0.18),
+        ("Kolkata", 11, 2, 0.15),
+        ("Pune", 13, 1, 0.07),
+        ("Jaipur", 10, 3, 0.30),
+        ("Rural-UP", 14, 7, 0.50),
+        ("Rural-Bihar", 12, 6, 0.50),
+        ("Chennai", 14, 2, 0.12),
+        ("Patna", 10, 4, 0.40),
+    ]
+
+    records = []
+    now = datetime.now(timezone.utc)
+    for loc, count, fraud_cnt, base_prob in sample_locations:
+        for i in range(count):
+            is_fraud = i < fraud_cnt
+            prob = base_prob + (0.15 if is_fraud else -0.05)
+            prob = max(0.01, min(0.99, round(prob, 2)))
+            pred = "Fraud" if is_fraud else "No Fraud"
+            records.append((
+                now.isoformat(),
+                "HDFC", "SBI", 3500.0 if is_fraud else 450.0,
+                now.isoformat(), loc, "Android",
+                1 if is_fraud else 0,
+                1 if is_fraud else 0,
+                1 if is_fraud else 0,
+                8 if is_fraud else 2,
+                pred, prob, "Random Forest", "seed"
+            ))
+
+    conn.executemany("""
+        INSERT INTO predictions (
+            logged_at, sender_bank, receiver_bank, transaction_amount,
+            transaction_timestamp, transaction_location, device_type,
+            is_new_beneficiary, location_mismatch_flag, device_change_flag,
+            transactions_last_24h, prediction, fraud_probability, model_used, source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, records)
+    conn.commit()
+
+
 def _get_connection() -> sqlite3.Connection:
     path = _db_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -56,6 +111,7 @@ def init_db():
     on every _get_connection() call, so this is safe to call any number of
     times (e.g. once on FastAPI startup) purely for clarity/documentation."""
     conn = _get_connection()
+    _seed_initial_telemetry(conn)
     conn.close()
 
 

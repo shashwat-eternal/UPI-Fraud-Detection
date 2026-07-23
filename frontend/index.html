@@ -527,8 +527,13 @@
 
 <script>
 
-const params = new URLSearchParams(window.location.search);
-const API_BASE = params.get("api") || "http://127.0.0.1:8000"; // <-- EDIT THIS after deploying
+const getApiBase = () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("api")) return params.get("api");
+  if (window.location.protocol.startsWith("http")) return window.location.origin;
+  return "http://127.0.0.1:8000";
+};
+const API_BASE = getApiBase();
 document.getElementById("apiBaseDisplay").textContent = `${API_BASE}/predict`;
 
 
