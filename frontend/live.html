@@ -294,23 +294,22 @@
 </div>
 
 <script>
-// API base: defaults to localhost for local dev. After deploying the backend,
+// API base: defaults to the live backend. Override locally with ?api=http://127.0.0.1:8000
 const getApiBase = () => {
   const params = new URLSearchParams(window.location.search);
   if (params.get("api")) return params.get("api");
-  if (window.location.protocol.startsWith("http")) return window.location.origin;
-  return "http://127.0.0.1:8000";
+  if (["localhost", "127.0.0.1"].includes(window.location.hostname)) return "http://127.0.0.1:8000";
+  return "https://upi-fraud-api-bvtv.onrender.com";
 };
 const API_BASE = getApiBase();
 const API_URL = new URL(API_BASE);
 const WS_PROTOCOL = API_URL.protocol === "https:" ? "wss:" : "ws:";
 const API_HOST = API_URL.host;
 
-// Carry the ?api= override forward when navigating back to the console page
-if (window.location.search) {
-  document.getElementById("consoleLink").href = "index.html" + window.location.search;
-  document.getElementById("analyticsLink").href = "analytics.html" + window.location.search;
-}
+// Always carry the resolved api base forward when navigating between pages
+const navQuery = "?api=" + encodeURIComponent(API_BASE);
+document.getElementById("consoleLink").href = "index.html" + navQuery;
+document.getElementById("analyticsLink").href = "analytics.html" + navQuery;
 
 
 let ws = null;
