@@ -17,6 +17,8 @@ from app.db import (
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
+if not os.path.exists(FRONTEND_DIR):
+    FRONTEND_DIR = os.path.join(os.getcwd(), "frontend")
 
 
 @asynccontextmanager
@@ -43,29 +45,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if os.path.exists(FRONTEND_DIR):
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
-
 
 @app.get("/")
+@app.get("/console")
+@app.get("/index.html")
 def root():
+    index_path = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
     return {
         "message": "UPI Fraud Detection API is running.",
         "docs": "/docs",
         "health": "/health",
-        "console": "/console",
-        "analytics": "/analytics",
-        "live": "/live",
+        "analytics": "/analytics.html",
+        "live": "/live.html",
     }
-
-
-@app.get("/console")
-@app.get("/index.html")
-def console_page():
-    index_path = os.path.join(FRONTEND_DIR, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    raise HTTPException(status_code=404, detail="index.html not found")
 
 
 @app.get("/analytics")
@@ -184,3 +178,7 @@ def analytics_export():
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=upi_fraud_audit_report.csv"}
     )
+
+
+if os.path.exists(FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
